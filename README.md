@@ -21,7 +21,7 @@
    - 使用轮廓系数确定最优聚类数
    - K-Means精细聚类
 
-![聚类流程图](wei4.png)
+![聚类流程图](assets/wei4.png)
 
 ## 主要功能
 
@@ -62,13 +62,13 @@ output, clusters = clusterer.combined(cluster_num=3, isPlot=True)
 ## 可视化效果
 
 ### MeanShift聚类结果
-![MeanShift结果](wei1.png)
+![MeanShift结果](assets/wei1.png)
 
 ### K-Means聚类结果
-![K-Means结果](wei2.png)
+![K-Means结果](assets/wei2.png)
 
 ### 组合聚类结果
-![组合聚类结果](wei3.png)
+![组合聚类结果](assets/wei3.png)
 
 ## 优势特点
 
