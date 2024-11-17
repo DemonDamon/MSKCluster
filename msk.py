@@ -20,72 +20,87 @@ from sklearn.decomposition import PCA, KernelPCA
 from sklearn import random_projection
 from sklearn import preprocessing
 from sklearn.cluster import MeanShift, estimate_bandwidth
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 from sklearn.metrics import silhouette_samples, silhouette_score
-from sklearn.datasets.samples_generator import make_blobs
 from sklearn.ensemble import IsolationForest
 
 from itertools import cycle
 import glob
 import pickle
 import os
+from typing import Optional
 
 #去掉科学计数法
 pd.set_option('display.expand_frame_repr', False)
 
-class msk:
-	def __init__(self,data,Standardized_method=['minmax',0,1],reduced_n_dim=None,reduced_method='PCA'):
-		'''Parameters
-		      - data: input "DataFrame"
-		      - Standardized_method: input "list", the first element represents standardized method, including 'minmax'
-		                             and 'zscore'; as for 'minmax', the second and third element represent down limit 
-		                             and up limit of standardized interval.
-		      - reduced_n_dim: input "int", manually determine how many dimension needed to be reduced, or automaticlly
-		     	 			   decide how many principle components contributes over specific setting
-		      - reduced_method: input "string", including 'PCA', 'FeatureAgglomeration', 'GaussianRandomProjection', 
-		                        'SparseRandomProjection'
-		'''
-
+class MSK:
+	def __init__(
+		self,
+		data: pd.DataFrame,
+		standardized_method: list = ['minmax', 0, 1],
+		reduced_n_dim: Optional[int] = None,
+		reduced_method: str = 'PCA'
+	) -> None:
+		"""Initialize MSK clustering class
+		
+		Args:
+			data: Input DataFrame
+			standardized_method: Standardization method and params
+			reduced_n_dim: Number of dimensions to reduce to
+			reduced_method: Dimension reduction method
+		"""
+		self._validate_inputs(data, standardized_method, reduced_method)
+		
 		self.data = pd.DataFrame(data)
-		self.Standardized_method = Standardized_method
+		self.standardized_method = standardized_method
 		self.reduced_n_dim = reduced_n_dim
 		self.method = reduced_method
 		self.cont_rate_list = [0.99, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70]
 
+	def _validate_inputs(self, data, standardized_method, reduced_method):
+		"""Validate input parameters"""
+		if not isinstance(data, (pd.DataFrame, np.ndarray)):
+			raise TypeError("Data must be DataFrame or ndarray")
+			
+		valid_methods = ['PCA', 'FeatureAgglomeration', 'GaussianRandomProjection', 'SparseRandomProjection']
+		if reduced_method not in valid_methods:
+			raise ValueError(f"Method must be one of {valid_methods}")
 
-	def data_preprocessing(self):
-		'''including data clearing, Standardization and transformation
-		'''
+	def data_preprocessing(self) -> None:
+		"""Data preprocessing including cleaning and standardization"""
+		try:
+			# Remove rows with any null values
+			self.data = self.data.dropna()
+			
+			if self.standardized_method[0] == 'minmax':
+				self._minmax_scale()
+			elif self.standardized_method[0] == 'zscore': 
+				self._zscore_scale()
+			else:
+				raise ValueError("Invalid standardization method")
+				
+		except Exception as e:
+			raise RuntimeError(f"Error in preprocessing: {str(e)}")
 
-		drop_list = []
+	def _minmax_scale(self):
+		"""Min-Max scaling"""
+		self.data = (self.data - self.data.min()) / (self.data.max() - self.data.min())
+		self.data = self.data * (self.standardized_method[2] - self.standardized_method[1]) + self.standardized_method[1]
+
+	def _zscore_scale(self):
+		"""Z-score scaling"""
+		self.data = (self.data - self.data.mean()) / self.data.std()
+
+	def dimension_reduction(self, cont_rate=0.99):
+		"""Dimension reduction
 		
-		for ind in self.data.index.tolist():
-			if pd.isnull(self.data.loc[ind][:]).all() == True \
-			or pd.isnull(self.data.loc[ind][:]).any() == True:
-				drop_list.append(ind)
-
-		self.data.drop(drop_list,inplace=True) 
-
-		print("  ----  clear NULL data ")
-
-		if self.Standardized_method[0] == 'minmax':
-			print("  ----  utilize MINMAX standardized method ")
-			self.data = (self.data - self.data.min()) / (self.data.max() - self.data.min())
-			self.data = self.data * (self.Standardized_method[2] - self.Standardized_method[1]) + self.Standardized_method[1]
-
-		elif self.Standardized_method[0] == 'zscore':
-			print("  ----  utilize ZSCORE standardized method ")
-			self.data = (self.data - self.data.mean()) / self.data.std()
-
-
-	def dimension_reduction(self,cont_rate=0.99):
-		'''Parameter
-			  - cont_rate: contribution rates of each components used for determining how
+		Args:
+			cont_rate: Contribution rates of each components used for determining how
 			              many components are principle
-		   Explanation
-		      - firstly, determine "N" components contribute over 'cont_rate'	
-		      - then use specific method make data dimension reduced to "N" 
-		'''
+		Explanation
+			- firstly, determine "N" components contribute over 'cont_rate'	
+			- then use specific method make data dimension reduced to "N" 
+		"""
 
 		if not self.reduced_n_dim:
 
@@ -124,10 +139,12 @@ class msk:
 		self.data = pd.DataFrame(self.data)
 		
 
-	def mean_shift(self,isPlot=False):
-		'''Parameters
-		      - isPlot: plot or not
-		'''
+	def mean_shift(self, isPlot=False):
+		"""MeanShift clustering
+		
+		Args:
+			isPlot: Plot or not
+		"""
 
 		print(" [INFO] starting MeanShift combind method ")
 
@@ -202,15 +219,17 @@ class msk:
 			plt.show()
 		return output_label, data_cluster_dict
 
-	def kmeans(self,n_cluster_list=list(range(2,10)),isPlot=False):
-		''' Parameters
-		       - n_cluster_list: list of cluster amounts for calculating different silhouette scores
-		       - isPlot: plot or not
-		    Explanation
-		 	   - if having data clustered into known "N" classes, for example "N=3", then set 'n_cluster_list=[3]'
-			   - if having no idea how many clusters should be decided, then give it a list with numbers you are
-			     interested in, then select "N" with highest SILHOUETTE score 
-		'''
+	def kmeans(self, n_cluster_list=list(range(2,10)), isPlot=False):
+		"""KMeans clustering
+		
+		Args:
+			n_cluster_list: List of cluster amounts for calculating different silhouette scores
+			isPlot: Plot or not
+		Explanation
+			- if having data clustered into known "N" classes, for example "N=3", then set 'n_cluster_list=[3]'
+			- if having no idea how many clusters should be decided, then give it a list with numbers you are
+			  interested in, then select "N" with highest SILHOUETTE score 
+		"""
 
 		print(" [INFO] starting KMeans combind method ")
 
@@ -295,13 +314,15 @@ class msk:
 
 		return output_label, data_cluster_dict
 
-	def combined(self,cluster_num=None,isPlot=False):
-		'''Parameter
-		      - cluster_num: input "int", manually determine number of clusters
-		      - isplot: plot or not
-		   Explanation
-		      - utilize Mean-Shift method to make initial centroids of K-Means
-		'''
+	def combined(self, cluster_num=None, isPlot=False):
+		"""Combined clustering
+		
+		Args:
+			cluster_num: Input "int", manually determine number of clusters
+			isplot: Plot or not
+		Explanation
+			- utilize Mean-Shift method to make initial centroids of K-Means
+		"""
 
 		print(" [INFO] starting meanshift-kmeans combind method ")
 
@@ -436,13 +457,26 @@ class msk:
 
 		return output, data_cluster_dict
 
+	def _plot_clusters(self, X: np.ndarray, labels: np.ndarray, 
+					  centers: np.ndarray) -> None:
+		"""Helper method for cluster visualization"""
+		colors = cycle('bgrcmykbgrcmykbgrcmykbgrcmyk')
+		markers = cycle('.^*o+dp')
+		
+		for k, col in zip(np.unique(labels), colors):
+			mask = labels == k
+			plt.plot(X[mask, 0], X[mask, 1], 
+					f"{next(col)}{next(markers)}")
+			plt.plot(centers[k, 0], centers[k, 1], 'o',
+					markerfacecolor=col, markeredgecolor='k', 
+					markersize=14)
+
 
 if __name__ == '__main__':
-	from sklearn.datasets.samples_generator import make_blobs
 	centers = [[1, 1], [-1, -1], [1, -1]]
 	X, labels_true = make_blobs(n_samples=300, centers=centers, cluster_std=0.5,
 	                            random_state=0)
-	obj = msk(X,Standardized_method=['minmax',0,1],reduced_n_dim=None,reduced_method='PCA')
+	obj = MSK(X,Standardized_method=['minmax',0,1],reduced_n_dim=None,reduced_method='PCA')
 	# obj.mean_shift(isPlot=True)
 	# obj.kmeans(n_cluster_list=[4],isPlot=True)
 	obj.combined(cluster_num=3,isPlot=True)
