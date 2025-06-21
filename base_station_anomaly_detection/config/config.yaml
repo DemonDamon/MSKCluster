@@ -1,0 +1,106 @@
+# 基站坐标异常检测配置文件
+
+# 数据配置
+data:
+  # 时间配置
+  day_start_hour: 7      # 白天开始时间
+  day_end_hour: 22       # 白天结束时间
+  day_interval: 5        # 白天采样间隔(分钟)
+  night_interval: 30     # 夜间采样间隔(分钟)
+  
+  # 地理配置
+  coordinate_precision: 6  # 坐标精度(小数位)
+  
+# 统计检测器配置
+statistical_detector:
+  # 速度阈值 (km/h)
+  day_speed_threshold: 120     # 白天速度阈值
+  night_speed_threshold: 250   # 夜间速度阈值
+  
+  # 加速度阈值 (m/s²)
+  acceleration_threshold: 10   # 加速度阈值
+  
+  # 距离阈值 (米)
+  day_distance_threshold: 10000    # 白天最大移动距离
+  night_distance_threshold: 50000  # 夜间最大移动距离
+
+# 轨迹检测器配置
+trajectory_detector:
+  # 滑动窗口配置
+  window_size: 5               # 滑动窗口大小
+  min_window_size: 3           # 最小窗口大小
+  
+  # 残差阈值 (米)
+  residual_threshold: 500      # 残差异常阈值
+  
+  # 平滑参数
+  smoothing_method: "median"   # 平滑方法: median, mean, kalman
+  
+  # 方向变化阈值 (度)
+  direction_change_threshold: 120  # 方向突变阈值
+
+# 聚类检测器配置
+clustering_detector:
+  # DBSCAN参数
+  eps: 0.02                    # 邻域半径 (约2.2km)
+  min_samples: 3               # 最小聚类点数
+  
+  # 时间窗口 (小时)
+  time_window: 24              # 聚类时间窗口
+  
+  # LOF参数
+  lof_neighbors: 20            # LOF邻居数
+  lof_threshold: 1.5           # LOF异常阈值
+
+# 集成检测器配置
+ensemble_detector:
+  # 权重配置
+  statistical_weight: 0.4      # 统计方法权重
+  trajectory_weight: 0.4       # 轨迹方法权重
+  clustering_weight: 0.2       # 聚类方法权重
+  
+  # 阈值配置
+  ensemble_threshold: 0.5      # 集成阈值
+  
+  # 投票策略
+  voting_strategy: "weighted"  # 投票策略: majority, weighted, soft
+
+# 评估配置
+evaluation:
+  # 主要指标
+  primary_metric: "f2_score"   # 主要优化指标
+  
+  # 成本配置
+  false_positive_cost: 1       # 误报成本
+  false_negative_cost: 10      # 漏报成本
+  
+  # 交叉验证
+  cv_folds: 5                  # 交叉验证折数
+  test_size: 0.2               # 测试集比例
+
+# 可视化配置
+visualization:
+  # 地图配置
+  map_center_lat: 39.9042      # 地图中心纬度 (北京)
+  map_center_lon: 116.4074     # 地图中心经度
+  map_zoom: 10                 # 地图缩放级别
+  
+  # 颜色配置
+  normal_color: "blue"         # 正常点颜色
+  anomaly_color: "red"         # 异常点颜色
+  predicted_color: "orange"    # 预测异常点颜色
+  
+  # 图表配置
+  figure_size: [12, 8]         # 图表大小
+  dpi: 100                     # 图表分辨率
+
+# 模型保存配置
+model:
+  save_path: "models/"         # 模型保存路径
+  model_format: "joblib"       # 模型保存格式
+  
+# 日志配置
+logging:
+  level: "INFO"                # 日志级别
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/detection.log"   # 日志文件
